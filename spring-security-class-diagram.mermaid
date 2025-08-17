@@ -1,0 +1,132 @@
+classDiagram
+    class Security8Application {
+        +main(String[] args)
+        @SpringBootApplication
+        @MapperScan
+    }
+    
+    class SecurityConfig {
+        -UserDetailsService userDetailsService
+        -PasswordEncoder passwordEncoder
+        +SecurityFilterChain filterChain(HttpSecurity)
+        @Configuration
+        @EnableWebSecurity
+    }
+    
+    class PasswordConfig {
+        +PasswordEncoder passwordEncoder()
+        @Configuration
+    }
+    
+    class LoginController {
+        +showLogin(LoginForm) String
+        @Controller
+        @RequestMapping("/login")
+    }
+    
+    class MemberController {
+        +menu() String
+        +todos() String
+        @Controller
+    }
+    
+    class LoginForm {
+        -String usernameInput
+        -String passwordInput
+        @Data
+    }
+    
+    class LoginUserDetailsServiceImpl {
+        -AuthenticationMapper authenticationMapper
+        +UserDetails loadUserByUsername(String)
+        -List~GrantedAuthority~ getAuthorityList(Role)
+        @Service
+    }
+    
+    class AuthenticationMapper {
+        +Authentication selectByUsername(String)
+        @Mapper
+        @Select
+    }
+    
+    class Authentication {
+        -String username
+        -String password
+        -Role authority
+        -String displayname
+        @Data
+    }
+    
+    class LoginUser {
+        -String displayname
+        +LoginUser(username, password, authorities, displayname)
+        +String getDisplayname()
+    }
+    
+    class Role {
+        <<enumeration>>
+        ADMIN
+        USER
+    }
+    
+    class User {
+        <<Spring Security>>
+        -String username
+        -String password
+        -Collection authorities
+    }
+    
+    class UserDetailsService {
+        <<interface>>
+        +UserDetails loadUserByUsername(String)
+    }
+    
+    class UserDetails {
+        <<interface>>
+        +getUsername()
+        +getPassword()
+        +getAuthorities()
+    }
+    
+    class PasswordEncoder {
+        <<interface>>
+        +encode(String)
+        +matches(String, String)
+    }
+    
+    class BCryptPasswordEncoder {
+        +encode(String)
+        +matches(String, String)
+    }
+    
+    %% 관계 정의
+    Security8Application ..> SecurityConfig : uses
+    SecurityConfig --> UserDetailsService : dependency
+    SecurityConfig --> PasswordEncoder : dependency
+    LoginUserDetailsServiceImpl ..|> UserDetailsService : implements
+    LoginUserDetailsServiceImpl --> AuthenticationMapper : uses
+    AuthenticationMapper --> Authentication : returns
+    LoginUserDetailsServiceImpl --> LoginUser : creates
+    LoginUser --|> User : extends
+    User ..|> UserDetails : implements
+    Authentication --> Role : has
+    PasswordConfig --> BCryptPasswordEncoder : creates
+    BCryptPasswordEncoder ..|> PasswordEncoder : implements
+    LoginController --> LoginForm : uses
+    
+    %% 스타일링
+    class SecurityConfig {
+        <<Configuration>>
+    }
+    class LoginUserDetailsServiceImpl {
+        <<Service>>
+    }
+    class AuthenticationMapper {
+        <<Repository>>
+    }
+    class LoginController {
+        <<Controller>>
+    }
+    class MemberController {
+        <<Controller>>
+    }
