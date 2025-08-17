@@ -1,0 +1,82 @@
+sequenceDiagram
+    participant Client as 클라이언트
+    participant Filter as Security Filter Chain
+    participant AuthMgr as AuthenticationManager
+    participant Provider as DaoAuthenticationProvider
+    participant UserService as LoginUserDetailsServiceImpl
+    participant Mapper as AuthenticationMapper
+    participant DB as H2 Database
+    participant Encoder as BCryptPasswordEncoder
+    participant Context as SecurityContext
+    
+    Note over Client: 로그인 페이지에서<br/>usernameInput: admin<br/>passwordInput: adminpass
+    
+    Client->>Filter: POST /aaa (로그인 요청)
+    Note over Filter: UsernamePasswordAuthenticationFilter 동작
+    
+    Filter->>Filter: Authentication 객체 생성<br/>(username, password)
+    
+    Filter->>AuthMgr: authenticate(Authentication)
+    
+    AuthMgr->>Provider: authenticate(Authentication)
+    Note over Provider: DaoAuthenticationProvider 처리
+    
+    Provider->>UserService: loadUserByUsername("admin")
+    
+    UserService->>Mapper: selectByUsername("admin")
+    
+    Mapper->>DB: SELECT * FROM authentications<br/>WHERE username = 'admin'
+    
+    DB-->>Mapper: Authentication 엔티티<br/>(admin, $2a$10$..., ADMIN, 관리자)
+    
+    Mapper-->>UserService: Authentication 객체 반환
+    
+    UserService->>UserService: getAuthorityList(ADMIN)<br/>→ [ADMIN, USER] 권한 생성
+    
+    UserService->>UserService: new LoginUser(<br/>username, password,<br/>authorities, displayname)
+    
+    UserService-->>Provider: LoginUser (UserDetails) 반환
+    
+    Provider->>Encoder: matches(입력PW, 저장PW)
+    Note over Encoder: BCrypt 해시 비교
+    
+    alt 비밀번호 일치
+        Encoder-->>Provider: true
+        
+        Provider->>Provider: Authentication 객체 완성<br/>isAuthenticated = true
+        
+        Provider-->>AuthMgr: Authentication 반환
+        
+        AuthMgr-->>Filter: Authentication 반환
+        
+        Filter->>Context: SecurityContextHolder에<br/>Authentication 저장
+        
+        Filter->>Client: 302 Redirect to /<br/>Set-Cookie: JSESSIONID=xxx
+        
+        Note over Client: 메인 메뉴 페이지로 이동<br/>인증 성공!
+        
+    else 비밀번호 불일치
+        Encoder-->>Provider: false
+        
+        Provider-->>AuthMgr: BadCredentialsException
+        
+        AuthMgr-->>Filter: 인증 실패
+        
+        Filter->>Client: 302 Redirect to /login?error
+        
+        Note over Client: 로그인 페이지로 이동<br/>에러 메시지 표시
+    end
+    
+    Note over Context: 이후 요청 시<br/>SecurityContext에서<br/>인증 정보 확인
+    
+    Client->>Filter: GET /todos (인증 필요)
+    
+    Filter->>Context: 인증 정보 확인
+    
+    alt ADMIN 권한 있음
+        Context-->>Filter: Authentication (ADMIN)
+        Filter->>Client: 200 OK - todo/list 페이지
+    else 권한 없음
+        Context-->>Filter: 권한 부족
+        Filter->>Client: 403 Forbidden
+    end
